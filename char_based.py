@@ -42,6 +42,21 @@ class Evaluator : # 评价
                     self.cor_words,f1_words,
                     ))
 
+
+def gen_tagged_lattice(std,output):
+    raw=''.join(x for x,_ in std)
+    output=[it.split(',') for it in output]
+    output={(int(b),int(e),raw[int(b):int(e)],t):int(weight) for b,e,t,weight in output}
+    offset=0
+    ss=set()
+    for w,t in std:
+        it=(offset,offset+len(w),w,t)
+        ss.add(it)
+        offset+=len(w)
+        if it not in output : output[it]=-1
+    output=' '.join(','.join(['1' if it in ss else '0']+list(map(str,list(it)+[weight]))) for it,weight in sorted(list(output.items())))
+    print(output)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--iteration',type=int,default=5, help='')
@@ -68,7 +83,8 @@ if __name__ == '__main__':
 
     # 使用有正确答案的语料测试
     if args.test :
-        sp=subprocess.Popen(r'bin/predict_c %s '%(
+        sp=subprocess.Popen(r'bin/predict_c %s %s '%(
+            '--threshold %i'%(args.threshold) if args.threshold!=0 else '',
             args.model,),
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                 shell=True)
@@ -87,11 +103,15 @@ if __name__ == '__main__':
             sp.stdin.write((line+'\n').encode())
             sp.stdin.flush()
             output=sp.stdout.readline().decode().split()
-            if has_tags :
-                output=[it.rpartition('_') for it in output]
-                output=[(w,t) for w,_,t in output]
-            ev(std,output)
-        ev.report()
+            if args.threshold !=0 :
+                gen_tagged_lattice(std,output)
+            else :
+                if has_tags :
+                    output=[it.rpartition('_') for it in output]
+                    output=[(w,t) for w,_,t in output]
+                ev(std,output)
+        if args.threshold==0 :
+            ev.report()
         
     # 对未分词的句子输出分词结果
     if not args.test and not args.train :
@@ -108,6 +128,9 @@ if __name__ == '__main__':
             sp.stdin.write((input+'\n').encode())
             sp.stdin.flush()
             output=sp.stdout.readline().decode().strip()
+            if args.threshold!=0 :
+                output=[it.split(',') for it in output.split()]
+                output=' '.join([','.join([b,e,input[int(b):int(e)],t,i]) for b,e,t,i in output])
             if args.show_input :
                 output=input+' '+output
             print(output,file=outstream)
