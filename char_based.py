@@ -36,7 +36,7 @@ class Evaluator : # 评价
         precision=self.cor_words/self.rst if self.rst else 0
         recall=self.cor_words/self.std if self.std else 0
         f1_words=2*precision*recall/(precision+recall) if precision+recall!=0 else 0
-        print("历时: %.2f秒 答案: %i 结果: %i 词性标注正确: %i F值: %.5f 分词正确: %i F值: %.5f"
+        print("历时: %.2f秒 答案: %i 结果: %i 词性标注正确: %i F值: %.4f 分词正确: %i F值: %.4f"
                 %(time.time()-self.start_time,self.std,self.rst,
                     self.cor_tags,f1_tags,
                     self.cor_words,f1_words,
@@ -52,6 +52,8 @@ if __name__ == '__main__':
     parser.add_argument('--test',type=str, help='')
     parser.add_argument('--predict',type=str, help='')
     parser.add_argument('--result',type=str, help='')
+    parser.add_argument('--threshold',type=int, default=0, help='')
+    parser.add_argument('--show_input',action='store_true',default=False)
     args = parser.parse_args()
     
     # 训练
@@ -93,14 +95,19 @@ if __name__ == '__main__':
         
     # 对未分词的句子输出分词结果
     if not args.test and not args.train :
-        sp=subprocess.Popen(r'bin/predict_c %s '%(
+        sp=subprocess.Popen(r'bin/predict_c %s %s '%(
+            '--threshold %i'%(args.threshold) if args.threshold!=0 else '',
             args.model,),
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                 shell=True)
         instream=open(args.predict) if args.predict else sys.stdin
         outstream=open(args.result,'w') if args.result else sys.stdout
+        has_tags=None
         for input in instream:
-            sp.stdin.write((input).encode())
+            input=input.strip()
+            sp.stdin.write((input+'\n').encode())
             sp.stdin.flush()
             output=sp.stdout.readline().decode().strip()
+            if args.show_input :
+                output=input+' '+output
             print(output,file=outstream)
