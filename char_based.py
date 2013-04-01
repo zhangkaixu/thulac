@@ -111,3 +111,4 @@ if __name__ == '__main__':
             if args.show_input :
                 output=input+' '+output
             print(output,file=outstream)
+            outstream.flush()
